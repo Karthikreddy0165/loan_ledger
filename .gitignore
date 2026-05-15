@@ -4,3 +4,5 @@ node_modules
 .env.local
 *.log
 .DS_Store
+.loan_data_backup.json
+.loan_data.xlsx
