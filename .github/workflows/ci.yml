@@ -1,0 +1,50 @@
+name: Loan Ledger CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Generate Prisma Client
+      run: npx prisma generate
+
+    - name: Run Tests
+      run: npm run test
+      env:
+        MONGODB_URI: "mongodb://localhost:27017/loan_ledger_test"
+
+    - name: Type Check
+      run: npx tsc --noEmit
+
+    - name: Build
+      run: npm run build
+      env:
+        MONGODB_URI: ${{ secrets.MONGODB_URI }}
+        NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+        NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+        CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        BACKUP_WEBHOOK_URL: ${{ secrets.BACKUP_WEBHOOK_URL }}

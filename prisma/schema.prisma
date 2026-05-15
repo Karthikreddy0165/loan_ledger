@@ -1,0 +1,135 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MONGODB_URI")
+}
+
+enum LoanType {
+  DAILY
+  WEEKLY
+  MONTHLY
+  ADJUSTMENT
+  UNKNOWN
+}
+
+enum LoanStatus {
+  OPEN
+  CLOSED
+}
+
+model Loan {
+  id                      String     @id @default(auto()) @map("_id") @db.ObjectId
+  borrower                String
+  loanType                LoanType
+  loanGiven               Float
+  loanDate                DateTime?
+  installmentCount        Int?
+  amountPerInstallment    Float?
+  expectedReturnDate      DateTime?
+  interestAmount          Float?
+  interestDueDate         DateTime?
+  adjustmentReturnAmount  Float?
+  adjustmentReturnDate    DateTime?
+  status                  LoanStatus @default(OPEN)
+  note                    String?
+  createdAt               DateTime   @default(now())
+  updatedAt               DateTime   @updatedAt
+  
+  payments                Payment[]
+  recoveryNotes           RecoveryNote[]
+
+  createdById             String?    @db.ObjectId
+  createdBy               User?      @relation("LoanCreatedBy", fields: [createdById], references: [id])
+  updatedById             String?    @db.ObjectId
+  updatedBy               User?      @relation("LoanUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([status])
+  @@index([borrower])
+  @@index([loanType])
+}
+
+model Payment {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  loanId      String   @db.ObjectId
+  amount      Float
+  paymentDate DateTime @default(now())
+  note        String?
+  createdAt   DateTime @default(now())
+  
+  loan        Loan     @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  createdById             String?    @db.ObjectId
+  createdBy               User?      @relation("PaymentCreatedBy", fields: [createdById], references: [id])
+
+  @@index([loanId])
+  @@index([paymentDate])
+}
+
+enum RecoveryStatus {
+  PROMISED
+  NO_RESPONSE
+  PARTIAL
+  DENIED
+  FOLLOW_UP
+  RESOLVED
+}
+
+enum ContactMethod {
+  PHONE
+  VISIT
+  MESSAGE
+  OTHER
+}
+
+model RecoveryNote {
+  id            String         @id @default(auto()) @map("_id") @db.ObjectId
+  loanId        String         @db.ObjectId
+  note          String
+  contactMethod ContactMethod  @default(PHONE)
+  status        RecoveryStatus @default(FOLLOW_UP)
+  contactDate   DateTime       @default(now())
+  followUpDate  DateTime?
+  promisedAmount Float?
+  createdAt     DateTime       @default(now())
+
+  loan          Loan           @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  createdById             String?    @db.ObjectId
+  createdBy               User?      @relation("RecoveryNoteCreatedBy", fields: [createdById], references: [id])
+
+  @@index([loanId])
+  @@index([contactDate])
+  @@index([followUpDate])
+  @@index([status])
+}
+
+model User {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  email     String     @unique
+  password  String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  auditLogs AuditLog[]
+  
+  loansCreated     Loan[]         @relation("LoanCreatedBy")
+  loansUpdated     Loan[]         @relation("LoanUpdatedBy")
+  paymentsCreated  Payment[]      @relation("PaymentCreatedBy")
+  recoveryCreated  RecoveryNote[] @relation("RecoveryNoteCreatedBy")
+}
+
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  action    String   // e.g. CREATE, UPDATE, DELETE
+  entity    String   // e.g. Loan, Payment, RecoveryNote
+  entityId  String
+  details   String?  // JSON string of what changed
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id])
+}
