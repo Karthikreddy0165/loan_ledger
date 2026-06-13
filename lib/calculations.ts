@@ -97,8 +97,8 @@ export function calculateRemainingInstallments(loan: Loan, asOfDate: Date = new 
   const daysPassed = Math.max(0, differenceInDays(asOfDate, loanDate));
 
   if (loan.loanType === LoanType.DAILY) {
-    // +1: first installment is due on loan date itself
-    const installmentsDone = Math.min(daysPassed + 1, loan.installmentCount);
+    // DAILY: first installment is due the day after the loan date
+    const installmentsDone = Math.min(daysPassed, loan.installmentCount);
     return Math.max(0, loan.installmentCount - installmentsDone);
   } else {
     const weeksPassed = Math.floor(daysPassed / 7);
@@ -115,7 +115,7 @@ export function calculateExpectedAmount(loan: Loan, asOfDate: Date = new Date())
       {
         const loanDate = new Date(loan.loanDate);
         const daysPassed = Math.max(0, differenceInDays(asOfDate, loanDate));
-        const installmentsDue = capInstallments(daysPassed + 1, loan.installmentCount);
+        const installmentsDue = capInstallments(daysPassed, loan.installmentCount);
         const expected = installmentsDue * Number(loan.amountPerInstallment);
         return capExpectedAmount(expected, loan);
       }

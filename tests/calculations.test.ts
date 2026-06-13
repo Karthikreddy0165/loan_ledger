@@ -40,9 +40,9 @@ describe('Loan Calculations', () => {
   it('calculates expected amount for a daily loan', () => {
     // 5 days passed
     const asOfDate = new Date('2026-05-06T00:00:00Z');
-    // 5 days passed -> 6 installments due (including day 0) -> 6 * 120 = 720
+    // 5 days passed -> 5 installments due -> 5 * 120 = 600
     const expected = calculateExpectedAmount(baseLoan, asOfDate);
-    expect(expected).toBe(720);
+    expect(expected).toBe(600);
   });
 
   it('caps the expected amount to the loan given total', () => {
@@ -66,7 +66,7 @@ describe('Loan Calculations', () => {
   });
 
   it('calculates gap correctly', () => {
-    const asOfDate = new Date('2026-05-06T00:00:00Z'); // 6 installments due = 720
+    const asOfDate = new Date('2026-05-06T00:00:00Z'); // 5 installments due = 600
     const loanWithPayments = {
       ...baseLoan,
       payments: [
@@ -74,9 +74,9 @@ describe('Loan Calculations', () => {
         { id: '2', loanId: 'test-id', amount: 120, paymentDate: new Date(), note: null, createdAt: new Date(), createdById: null },
       ],
     };
-    // Expected: 720, Received: 220, Gap: 500
+    // Expected: 600, Received: 220, Gap: 380
     const gap = calculateGap(loanWithPayments, asOfDate);
-    expect(gap).toBe(500);
+    expect(gap).toBe(380);
   });
 
   it('returns 0 gap if loan is closed', () => {
@@ -91,7 +91,7 @@ describe('Loan Calculations', () => {
   });
 
   it('determines loan health correctly', () => {
-    const asOfDate = new Date('2026-05-06T00:00:00Z'); // Expected 720
+    const asOfDate = new Date('2026-05-06T00:00:00Z'); // Expected 600
     const behindLoan = { ...baseLoan, payments: [{ id: '1', loanId: 'test-id', amount: 500, paymentDate: new Date(), note: null, createdAt: new Date(), createdById: null }] };
     const onTrackLoan = { ...baseLoan, payments: [{ id: '1', loanId: 'test-id', amount: 800, paymentDate: new Date(), note: null, createdAt: new Date(), createdById: null }] };
 
