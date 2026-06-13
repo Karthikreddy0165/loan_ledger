@@ -3,6 +3,7 @@ import { LoanType, LoanStatus } from '@prisma/client';
 import LoanTable from '@/components/LoanTable';
 import StatsWidget from '@/components/StatsWidget';
 import AnalyticsCharts from '@/components/AnalyticsCharts';
+import ExportDefaulters from '@/components/ExportDefaulters';
 import { format, subDays, startOfDay } from 'date-fns';
 import {
   calculateExpectedAmount,
@@ -226,7 +227,7 @@ export default async function Dashboard() {
   return (
     <div>
       {/* Header */}
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
             Loan Book
@@ -235,6 +236,7 @@ export default async function Dashboard() {
             Reality = received money · Follow-up = expected − received
           </p>
         </div>
+        <ExportDefaulters loans={loans} />
       </div>
 
       {/* Top-level Stats */}
