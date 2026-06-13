@@ -3,14 +3,47 @@
 /* 👇 THIS IS THE KEY LINE */
 @reference "./tailwind-reference.css";
 
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-border: rgba(0, 0, 0, 0.06);
+  --input-bg: rgba(0, 0, 0, 0.03);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --nav-bg: rgba(255, 255, 255, 0.8);
+  --nav-border: rgba(0, 0, 0, 0.06);
+}
+
+.dark {
+  --background: #0a0e1a;
+  --foreground: #f1f5f9;
+  --card: #111626;
+  --card-border: rgba(255, 255, 255, 0.07);
+  --input-bg: rgba(255, 255, 255, 0.04);
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --nav-bg: rgba(10, 14, 26, 0.8);
+  --nav-border: rgba(255, 255, 255, 0.06);
+}
+
 @layer base {
-  * {
-    @apply antialiased;
+  *, ::before, ::after {
+    @apply border-white/5;
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, box-shadow;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
   }
 
   body {
-    @apply bg-[#0a0e1a] text-slate-100 text-[15px] leading-relaxed;
+    background-color: var(--background);
+    color: var(--foreground);
     font-family: var(--font-sans);
+    @apply text-[15px] leading-relaxed;
   }
 
   h1, h2, h3, h4 {
@@ -60,9 +93,11 @@
   }
   
   .btn-secondary {
-    @apply bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 hover:text-white
+    @apply text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white
            font-medium py-2.5 px-4 rounded-xl text-sm 
-           transition-all duration-200 border border-white/[0.08] hover:border-white/[0.15];
+           transition-all duration-200 border;
+    background-color: var(--input-bg);
+    border-color: var(--card-border);
   }
   .btn-secondary:active { transform: scale(0.98); }
   
@@ -83,12 +118,22 @@
   .btn-success:active { transform: scale(0.98); }
   
   .card {
-    @apply bg-[#111626] rounded-2xl border border-white/[0.07] p-6;
+    @apply rounded-2xl border p-6;
+    background-color: var(--card);
+    border-color: var(--card-border);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+  }
+  .dark .card {
     box-shadow: 0 4px 20px rgba(0,0,0,0.2);
   }
 
   .stat-card {
-    @apply bg-[#111626] rounded-2xl border border-white/[0.07] p-6 relative overflow-hidden;
+    @apply rounded-2xl border p-6 relative overflow-hidden;
+    background-color: var(--card);
+    border-color: var(--card-border);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+  }
+  .dark .stat-card {
     box-shadow: 0 4px 20px rgba(0,0,0,0.2);
   }
   .stat-card::before {
@@ -100,15 +145,16 @@
   }
   
   .input {
-    @apply w-full px-4 py-2.5 border border-white/[0.1] rounded-xl 
-           bg-white/[0.04] 
-           focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 focus:bg-white/[0.06]
-           placeholder:text-slate-500 text-sm text-slate-200
-           transition-all duration-200 outline-none;
+    @apply w-full px-4 py-2.5 border rounded-xl 
+           transition-all duration-200 outline-none text-sm;
+    background-color: var(--input-bg);
+    border-color: var(--card-border);
+    color: var(--text-primary);
   }
   
   .label {
-    @apply block text-sm font-medium text-slate-400 mb-1.5;
+    @apply block text-sm font-medium mb-1.5;
+    color: var(--text-secondary);
   }
 
   .badge-green {
@@ -139,6 +185,9 @@
   .data-table thead tr {
     background: rgba(15, 20, 35, 0.95);
   }
+  .light .data-table thead tr {
+    background: rgba(241, 245, 249, 0.95);
+  }
   .data-table thead th {
     @apply px-4 py-3 text-left text-[11px] font-semibold text-slate-400 
            uppercase tracking-wider border-b border-white/[0.06];
@@ -159,4 +208,77 @@
   .animate-fade-in-up {
     animation: fadeInUp 0.5s ease-out forwards;
   }
+}
+
+/* Light Mode Overrides for Hardcoded Color Classes */
+html:not(.dark) {
+  .text-white, .text-slate-100, .text-slate-200, .text-slate-300, .text-zinc-100 {
+    color: var(--text-primary) !important;
+  }
+  .text-slate-400, .text-zinc-400 {
+    color: var(--text-secondary) !important;
+  }
+  .text-slate-500, .text-zinc-500 {
+    color: var(--text-muted) !important;
+  }
+  
+  .bg-\[\#0a0e1a\], .bg-\[\#111626\], .bg-zinc-900, .bg-\[\#0f172a\], .bg-\[\#1e293b\], .bg-zinc-950, .bg-\[\#111626\]\/80 {
+    background-color: var(--background) !important;
+  }
+  .bg-white {
+    background-color: var(--card) !important;
+  }
+  .bg-white\/\[0\.04\], .bg-white\/\[0\.06\], .bg-white\/\[0\.1\] {
+    background-color: var(--input-bg) !important;
+  }
+  .border-white\/\[0\.06\], .border-white\/\[0\.08\], .border-white\/\[0\.05\] {
+    border-color: var(--card-border) !important;
+  }
+}
+
+/* Holographic Loader Keyframes */
+@keyframes holo-spin-right {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes holo-spin-left {
+  0% { transform: rotate(360deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes holo-pulse {
+  0%, 100% { transform: scale(0.95); opacity: 0.5; filter: drop-shadow(0 0 15px rgba(59,130,246,0.3)); }
+  50% { transform: scale(1.05); opacity: 1; filter: drop-shadow(0 0 35px rgba(99,102,241,0.5)); }
+}
+
+@keyframes holo-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes holo-scan {
+  0% { top: 0%; opacity: 0; }
+  50% { opacity: 0.8; }
+  100% { top: 100%; opacity: 0; }
+}
+
+.animate-holo-spin-right {
+  animation: holo-spin-right 3s linear infinite;
+}
+
+.animate-holo-spin-left {
+  animation: holo-spin-left 2s linear infinite;
+}
+
+.animate-holo-pulse {
+  animation: holo-pulse 2.5s ease-in-out infinite;
+}
+
+.animate-holo-float {
+  animation: holo-float 4s ease-in-out infinite;
+}
+
+.animate-holo-scan {
+  animation: holo-scan 2s linear infinite;
 }
