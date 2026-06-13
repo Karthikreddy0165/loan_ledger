@@ -51,18 +51,21 @@ export default function ExportDefaulters({ loans }: ExportDefaultersProps) {
     if (gap <= 0) return;
 
     let amountPerInst = 0;
-    if (loan.loanType === LoanType.DAILY || loan.loanType === LoanType.WEEKLY) {
+    let threshold = 0;
+
+    if (loan.loanType === LoanType.DAILY) {
       amountPerInst = Number(loan.amountPerInstallment || 0);
-    } else if (loan.loanType === LoanType.MONTHLY) {
-      amountPerInst = Number(loan.interestAmount || 0);
+      threshold = 5; // more than 4 days
+    } else if (loan.loanType === LoanType.WEEKLY) {
+      amountPerInst = Number(loan.amountPerInstallment || 0);
+      threshold = 3; // more than 2 weeks
     }
 
-    if (amountPerInst <= 0) return;
+    if (amountPerInst <= 0 || threshold === 0) return;
 
     const missedInst = Math.ceil(gap / amountPerInst);
     
-    // We filter for customers who have missed 5 or more installments (which is "more than 4 installments")
-    if (missedInst >= 5) {
+    if (missedInst >= threshold) {
       const received = calculateReceivedTotal(loan.payments);
       const expected = calculateExpectedAmount(loan);
       const loanGiven = Number(loan.loanGiven);
@@ -212,8 +215,8 @@ export default function ExportDefaulters({ loans }: ExportDefaultersProps) {
             {/* Modal Content */}
             <div className="p-5 overflow-y-auto flex-1 bg-[#111626]">
               {defaulters.length === 0 ? (
-                <div className="text-center py-12 text-slate-500 italic">
-                  No borrowers found with 5 or more missed installments.
+                <div className="text-center py-12 text-slate-500 italic text-sm">
+                  No borrowers found matching the missed installments criteria (Daily 5+ days, Weekly 3+ weeks).
                 </div>
               ) : (
                 <div className="space-y-4">
