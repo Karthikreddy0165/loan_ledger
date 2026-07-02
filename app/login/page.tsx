@@ -18,18 +18,10 @@ export default function LoginPage() {
     setError("");
 
     const res = await signIn("credentials", {
-      redirect: false,
+      callbackUrl: "/",
       email,
       password,
     });
-
-    if (res?.error) {
-      setError("Invalid email or password");
-      setLoading(false);
-    } else {
-      router.push("/");
-      router.refresh();
-    }
   };
 
   return (
