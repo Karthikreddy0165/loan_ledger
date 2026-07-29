@@ -10,7 +10,7 @@ import {
   calculateReceivedTotal,
   calculateLoanEndDate,
 } from '@/lib/calculations';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 
 interface ExportDefaultersProps {
   loans: LoanWithPayments[];
@@ -29,6 +29,8 @@ interface DefaulterInfo {
   startDate: string;
   endDate: string;
   paidPercentage: number;
+  totalBalance: number;
+  daysAfterClosure: number;
 }
 
 export default function ExportDefaulters({ loans }: ExportDefaultersProps) {
@@ -75,6 +77,9 @@ export default function ExportDefaulters({ loans }: ExportDefaultersProps) {
       const startDate = loan.loanDate ? format(new Date(loan.loanDate), 'dd MMM yyyy') : '—';
       const endDate = endDateObj ? format(endDateObj, 'dd MMM yyyy') : '—';
 
+      const totalBalance = Math.max(0, loanGiven - received);
+      const daysAfterClosure = endDateObj ? differenceInDays(new Date(), endDateObj) : 0;
+
       defaulters.push({
         loan,
         borrower: loan.borrower,
@@ -88,6 +93,8 @@ export default function ExportDefaulters({ loans }: ExportDefaultersProps) {
         startDate,
         endDate,
         paidPercentage,
+        totalBalance,
+        daysAfterClosure,
       });
     }
   });
@@ -272,8 +279,16 @@ export default function ExportDefaulters({ loans }: ExportDefaultersProps) {
                             {def.missedInst} Missed
                           </span>
                           <span className="text-xs font-semibold text-slate-300 block">
+                            Bal: ₹{def.totalBalance.toLocaleString()}
+                          </span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">
                             Gap: ₹{def.gap.toLocaleString()}
                           </span>
+                          {def.daysAfterClosure > 0 && (
+                            <span className="text-[10px] text-amber-500 font-semibold block mt-0.5">
+                              {def.daysAfterClosure}d past closure
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -397,6 +412,16 @@ export default function ExportDefaulters({ loans }: ExportDefaultersProps) {
                 <span className="text-slate-400 text-xs font-medium">Received Amount</span>
                 <span className="text-slate-200 font-bold">₹{activeCardData.received.toLocaleString()}</span>
               </div>
+              <div className="flex justify-between items-center border-b border-white/[0.04] pb-2">
+                <span className="text-slate-400 text-xs font-medium">Total Balance</span>
+                <span className="text-rose-400 font-extrabold">₹{activeCardData.totalBalance.toLocaleString()}</span>
+              </div>
+              {activeCardData.daysAfterClosure > 0 && (
+                <div className="flex justify-between items-center border-b border-white/[0.04] pb-2">
+                  <span className="text-slate-400 text-xs font-medium">Days After Loan Closure</span>
+                  <span className="text-amber-400 font-extrabold">{activeCardData.daysAfterClosure} Days Past</span>
+                </div>
+              )}
               <div className="flex justify-between items-center">
                 <span className="text-slate-400 text-xs font-medium">Loan Period</span>
                 <span className="text-slate-300 text-xs font-semibold">
