@@ -3,6 +3,10 @@ import { LoanType } from '@prisma/client';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { addDays, addWeeks } from 'date-fns';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { isDemoSession } from '@/lib/permissions';
+import { ArrowLeft, Lock, AlertCircle, Save } from 'lucide-react';
 
 async function getLoan(id: string) {
   const loan = await prisma.loan.findUnique({
@@ -14,6 +18,15 @@ async function getLoan(id: string) {
 
 async function updateLoan(id: string, formData: FormData) {
   'use server';
+
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    redirect('/login');
+  }
+
+  if (isDemoSession(session)) {
+    redirect(`/loans/${id}?error=demo_readonly`);
+  }
 
   const borrower = String(formData.get('borrower') || '').trim();
   const loanType = String(formData.get('loanType') || 'DAILY') as LoanType;
@@ -59,6 +72,7 @@ async function updateLoan(id: string, formData: FormData) {
       adjustmentReturnAmount: adjustmentReturnAmountRaw ? Number(adjustmentReturnAmountRaw) : null,
       adjustmentReturnDate: adjustmentReturnDateRaw ? new Date(adjustmentReturnDateRaw) : null,
       note: noteRaw && noteRaw.trim() ? noteRaw.trim() : null,
+      updatedById: (session.user as any).id,
     },
   });
 
@@ -74,33 +88,47 @@ export default async function EditLoanPage(props: { params: Promise<{ id: string
     notFound();
   }
 
+  const session = await getServerSession(authOptions);
+  const isDemo = isDemoSession(session);
+
   return (
-    <div>
-      <div className="mb-6 flex items-center justify-between">
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-200/80 dark:border-slate-800">
         <div>
-          <h1 className="text-2xl font-bold text-white">Edit Loan</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Edit Loan Parameters</h1>
           <p className="text-slate-500 text-xs mt-1">
-            Update details for {loan.borrower}
+            Reconfigure terms for {loan.borrower}
           </p>
         </div>
-        <Link href={`/loans/${loan.id}`} className="text-blue-400 hover:text-blue-300 text-sm transition-colors flex items-center gap-1.5">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
-            <path fillRule="evenodd" d="M9.78 4.22a.75.75 0 0 1 0 1.06L7.06 8l2.72 2.72a.75.75 0 1 1-1.06 1.06L5.47 8.53a.75.75 0 0 1 0-1.06l3.25-3.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
-          </svg>
-          Back to Loan
+        <Link
+          href={`/loans/${loan.id}`}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back</span>
         </Link>
       </div>
 
-      <div className="card max-w-2xl">
-        <form action={updateLoan.bind(null, loan.id)} className="space-y-5">
+      {isDemo && (
+        <div className="p-3.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs flex items-center gap-2.5">
+          <Lock className="w-4 h-4 text-slate-500 shrink-0" />
+          <p className="text-slate-600 dark:text-slate-400">
+            View-Only Mode: You can view loan parameters, but saving changes is disabled for the test account.
+          </p>
+        </div>
+      )}
+
+      <div className="card">
+        <form action={updateLoan.bind(null, loan.id)} className="space-y-4">
           <div>
-            <label className="label">Borrower *</label>
+            <label className="label">Borrower Name *</label>
             <input
               name="borrower"
               type="text"
               className="input"
               required
               defaultValue={loan.borrower}
+              disabled={isDemo}
             />
           </div>
 
@@ -112,11 +140,12 @@ export default async function EditLoanPage(props: { params: Promise<{ id: string
                 className="input"
                 defaultValue={loan.loanType}
                 required
+                disabled={isDemo}
               >
-                <option value="DAILY">Daily</option>
-                <option value="WEEKLY">Weekly</option>
+                <option value="DAILY">Daily Micro-Loan</option>
+                <option value="WEEKLY">Weekly Loan</option>
                 <option value="MONTHLY">Monthly (Interest)</option>
-                <option value="ADJUSTMENT">Adjustment / Recovery</option>
+                <option value="ADJUSTMENT">Adjustment / Fixed Return</option>
                 <option value="UNKNOWN">Recovery</option>
               </select>
             </div>
@@ -125,18 +154,18 @@ export default async function EditLoanPage(props: { params: Promise<{ id: string
               <input
                 name="loanGiven"
                 type="number"
-
                 min="0"
                 className="input"
                 required
                 defaultValue={Number(loan.loanGiven)}
+                disabled={isDemo}
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="label">Loan Date</label>
+              <label className="label">Disbursal Date</label>
               <input
                 name="loanDate"
                 type="date"
@@ -146,10 +175,11 @@ export default async function EditLoanPage(props: { params: Promise<{ id: string
                     ? new Date(loan.loanDate).toISOString().split('T')[0]
                     : ''
                 }
+                disabled={isDemo}
               />
             </div>
             <div>
-              <label className="label">Expected Return Date</label>
+              <label className="label">Expected Maturity Date</label>
               <input
                 name="expectedReturnDate"
                 type="date"
@@ -159,20 +189,21 @@ export default async function EditLoanPage(props: { params: Promise<{ id: string
                     ? new Date(loan.expectedReturnDate).toISOString().split('T')[0]
                     : ''
                 }
+                disabled={isDemo}
               />
-              <p className="text-[10px] text-slate-600 mt-1">Auto-calculated from installments if left empty</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="label">Installment Count</label>
+              <label className="label">Installment Count (Daily / Weekly)</label>
               <input
                 name="installmentCount"
                 type="number"
                 min="0"
                 className="input"
                 defaultValue={loan.installmentCount ?? ''}
+                disabled={isDemo}
               />
             </div>
             <div>
@@ -183,6 +214,7 @@ export default async function EditLoanPage(props: { params: Promise<{ id: string
                 min="0"
                 className="input"
                 defaultValue={loan.amountPerInstallment ? Number(loan.amountPerInstallment) : ''}
+                disabled={isDemo}
               />
             </div>
           </div>
@@ -196,6 +228,7 @@ export default async function EditLoanPage(props: { params: Promise<{ id: string
                 min="0"
                 className="input"
                 defaultValue={loan.interestAmount ? Number(loan.interestAmount) : ''}
+                disabled={isDemo}
               />
             </div>
             <div>
@@ -209,6 +242,7 @@ export default async function EditLoanPage(props: { params: Promise<{ id: string
                     ? new Date(loan.interestDueDate).toISOString().split('T')[0]
                     : ''
                 }
+                disabled={isDemo}
               />
             </div>
           </div>
@@ -224,6 +258,7 @@ export default async function EditLoanPage(props: { params: Promise<{ id: string
                 defaultValue={
                   loan.adjustmentReturnAmount ? Number(loan.adjustmentReturnAmount) : ''
                 }
+                disabled={isDemo}
               />
             </div>
             <div>
@@ -237,27 +272,32 @@ export default async function EditLoanPage(props: { params: Promise<{ id: string
                     ? new Date(loan.adjustmentReturnDate).toISOString().split('T')[0]
                     : ''
                 }
+                disabled={isDemo}
               />
             </div>
           </div>
 
           <div>
-            <label className="label">Note</label>
+            <label className="label">Underwriting Remarks</label>
             <textarea
               name="note"
               rows={3}
               className="input"
               defaultValue={loan.note ?? ''}
+              disabled={isDemo}
             />
           </div>
 
-          <div className="flex justify-end gap-3 pt-3 border-t border-white/[0.05]">
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
             <Link href={`/loans/${loan.id}`} className="btn-secondary">
-              Cancel
+              Back to Account
             </Link>
-            <button type="submit" className="btn-primary">
-              Save Changes
-            </button>
+            {!isDemo && (
+              <button type="submit" className="btn-primary">
+                <Save className="w-4 h-4" />
+                <span>Save Loan Changes</span>
+              </button>
+            )}
           </div>
         </form>
       </div>

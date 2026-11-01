@@ -3,6 +3,13 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+export const DEMO_USER_EMAIL = "test@example.com";
+
+export function isDemoEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return email.trim().toLowerCase() === DEMO_USER_EMAIL.toLowerCase();
+}
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -12,18 +19,23 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        console.log("Auth attempt (Loan):", credentials?.email);
         if (!credentials?.email || !credentials?.password) return null;
         try {
           const user = await prisma.user.findUnique({
-            where: { email: credentials.email }
+            where: { email: credentials.email.trim().toLowerCase() }
           });
-          console.log("User found (Loan):", !!user);
           if (!user) return null;
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
-          console.log("Password valid (Loan):", isPasswordValid);
           if (!isPasswordValid) return null;
-          return { id: user.id, email: user.email, name: user.name };
+
+          const isDemo = isDemoEmail(user.email);
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            isDemo,
+            role: isDemo ? 'demo' : 'admin'
+          };
         } catch (err) {
           console.error("Auth Error (Loan):", err);
           return null;
@@ -35,12 +47,16 @@ export const authOptions: NextAuthOptions = {
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.isDemo = user.isDemo ?? isDemoEmail(user.email);
+        token.role = user.role ?? (token.isDemo ? 'demo' : 'admin');
       }
       return token;
     },
     session({ session, token }) {
       if (session.user) {
-        (session.user as any).id = token.id as string;
+        session.user.id = (token.id as string) || '';
+        session.user.isDemo = Boolean(token.isDemo || isDemoEmail(session.user.email));
+        session.user.role = (token.role as string) || (session.user.isDemo ? 'demo' : 'admin');
       }
       return session;
     }

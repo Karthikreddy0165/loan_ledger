@@ -5,6 +5,7 @@ import { LoanType, LoanStatus } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { createAuditLog } from '@/lib/audit';
+import { isDemoSession } from '@/lib/permissions';
 
 export async function GET(
   request: NextRequest,
@@ -39,13 +40,20 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    const body = await request.json();
-    const validated = updateLoanSchema.parse(body);
-
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    if (isDemoSession(session)) {
+      return NextResponse.json(
+        { error: 'Demo account is in view-only mode. Modifying loans is disabled.' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const validated = updateLoanSchema.parse(body);
     const userId = (session.user as any).id;
 
     const loan = await prisma.loan.update({
@@ -119,6 +127,14 @@ export async function DELETE(
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    if (isDemoSession(session)) {
+      return NextResponse.json(
+        { error: 'Demo account is in view-only mode. Deleting loans is disabled.' },
+        { status: 403 }
+      );
+    }
+
     const userId = (session.user as any).id;
 
     await prisma.loan.delete({

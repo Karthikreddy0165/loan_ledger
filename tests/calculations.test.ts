@@ -101,4 +101,20 @@ describe('Loan Calculations', () => {
     const onTrackStatus = getLoanHealthStatus(onTrackLoan, asOfDate);
     expect(onTrackStatus.status).toBe('on-track');
   });
+
+  it('calculates expected amount and gap correctly for a recovery loan', () => {
+    const recoveryLoan = {
+      ...baseLoan,
+      loanType: LoanType.UNKNOWN,
+      loanGiven: 50000,
+      payments: [
+        { id: '1', loanId: 'test-id', amount: 10000, paymentDate: new Date(), note: null, createdAt: new Date(), createdById: null },
+      ],
+    };
+    const expected = calculateExpectedAmount(recoveryLoan);
+    expect(expected).toBe(50000);
+
+    const gap = calculateGap(recoveryLoan);
+    expect(gap).toBe(40000);
+  });
 });

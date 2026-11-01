@@ -1,6 +1,6 @@
 "use client";
+
 import React, { createContext, useContext, useEffect, useState } from "react";
-import PremiumLoader from "./PremiumLoader";
 
 type Theme = "dark" | "light";
 
@@ -12,22 +12,21 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>("dark");
-  const [themeChanging, setThemeChanging] = useState(false);
-  const [loaderLabel, setLoaderLabel] = useState("");
+  const [theme, setTheme] = useState<Theme>("light");
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    // Read from localStorage or system settings
+    setMounted(true);
     const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored) {
-      setTheme(stored);
+    if (stored === "dark") {
+      setTheme("dark");
     } else {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setTheme(prefersDark ? "dark" : "light");
+      setTheme("light");
     }
   }, []);
 
   useEffect(() => {
+    if (!mounted) return;
     const root = window.document.documentElement;
     if (theme === "dark") {
       root.classList.add("dark");
@@ -37,26 +36,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.classList.remove("dark");
     }
     localStorage.setItem("theme", theme);
-  }, [theme]);
+  }, [theme, mounted]);
 
   const toggleTheme = () => {
-    setLoaderLabel(theme === "dark" ? "INITIALIZING LIGHT SPECTRUM" : "SYNTHESIZING DARK MATRIX");
-    setThemeChanging(true);
-    
-    // Switch the theme after 250ms (in the middle of the fade-in animation)
-    setTimeout(() => {
-      setTheme((prev) => (prev === "dark" ? "light" : "dark"));
-    }, 250);
-
-    // Hide loader after 700ms (completed smooth transition)
-    setTimeout(() => {
-      setThemeChanging(false);
-    }, 700);
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      <PremiumLoader show={themeChanging} label={loaderLabel} />
       {children}
     </ThemeContext.Provider>
   );

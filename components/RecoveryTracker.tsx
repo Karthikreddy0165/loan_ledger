@@ -2,7 +2,24 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import { format } from 'date-fns';
+import {
+  Search,
+  Plus,
+  X,
+  Phone,
+  User,
+  MessageSquare,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  Trash2,
+  Lock,
+  Calendar,
+  IndianRupee
+} from 'lucide-react';
 
 interface RecoveryNote {
   id: string;
@@ -16,24 +33,27 @@ interface RecoveryNote {
   createdAt: string;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string; icon: string }> = {
-  PROMISED:    { label: 'Promised',    color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20', icon: '🤝' },
-  NO_RESPONSE: { label: 'No Response', color: 'text-slate-400',   bg: 'bg-slate-500/10',   border: 'border-slate-500/20',   icon: '📵' },
-  PARTIAL:     { label: 'Partial',     color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20',   icon: '⚡' },
-  DENIED:      { label: 'Denied',      color: 'text-rose-400',    bg: 'bg-rose-500/10',    border: 'border-rose-500/20',    icon: '❌' },
-  FOLLOW_UP:   { label: 'Follow Up',   color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20',    icon: '📋' },
-  RESOLVED:    { label: 'Resolved',    color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/20',   icon: '✅' },
+const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  PROMISED:    { label: 'Promised',    color: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/40', border: 'border-emerald-200 dark:border-emerald-800/50' },
+  NO_RESPONSE: { label: 'No Response', color: 'text-slate-700 dark:text-slate-400',   bg: 'bg-slate-100 dark:bg-slate-800/60',   border: 'border-slate-200 dark:border-slate-700/60' },
+  PARTIAL:     { label: 'Partial',     color: 'text-amber-800 dark:text-amber-400',   bg: 'bg-amber-50 dark:bg-amber-950/40',   border: 'border-amber-200 dark:border-amber-800/50' },
+  DENIED:      { label: 'Denied',      color: 'text-rose-700 dark:text-rose-400',    bg: 'bg-rose-50 dark:bg-rose-950/40',    border: 'border-rose-200 dark:border-rose-800/50' },
+  FOLLOW_UP:   { label: 'Follow Up',   color: 'text-blue-700 dark:text-blue-400',    bg: 'bg-blue-50 dark:bg-blue-950/40',    border: 'border-blue-200 dark:border-blue-800/50' },
+  RESOLVED:    { label: 'Resolved',    color: 'text-green-700 dark:text-green-400',   bg: 'bg-green-50 dark:bg-green-950/40',   border: 'border-green-200 dark:border-green-800/50' },
 };
 
-const CONTACT_CONFIG: Record<string, { label: string; icon: string }> = {
-  PHONE:   { label: 'Phone Call', icon: '📞' },
-  VISIT:   { label: 'In-Person Visit', icon: '🚶' },
-  MESSAGE: { label: 'Message', icon: '💬' },
-  OTHER:   { label: 'Other', icon: '📝' },
+const CONTACT_CONFIG: Record<string, { label: string; icon: any }> = {
+  PHONE:   { label: 'Phone Call', icon: Phone },
+  VISIT:   { label: 'In-Person Visit', icon: User },
+  MESSAGE: { label: 'Message / SMS', icon: MessageSquare },
+  OTHER:   { label: 'Other', icon: FileText },
 };
 
 export default function RecoveryTracker({ loanId }: { loanId: string }) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isDemo = Boolean(session?.user?.isDemo || session?.user?.email?.toLowerCase() === 'test@example.com');
+
   const [notes, setNotes] = useState<RecoveryNote[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -69,6 +89,11 @@ export default function RecoveryTracker({ loanId }: { loanId: string }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDemo) {
+      setError('Adding recovery notes is disabled in demo mode.');
+      return;
+    }
+
     setError('');
     setIsSubmitting(true);
 
@@ -93,7 +118,6 @@ export default function RecoveryTracker({ loanId }: { loanId: string }) {
         throw new Error(data.error || 'Failed to add note');
       }
 
-      // Reset form
       setNoteText('');
       setContactMethod('PHONE');
       setStatus('FOLLOW_UP');
@@ -112,6 +136,10 @@ export default function RecoveryTracker({ loanId }: { loanId: string }) {
   };
 
   const handleDelete = async (noteId: string) => {
+    if (isDemo) {
+      alert('Deleting recovery notes is disabled in demo mode.');
+      return;
+    }
     if (!confirm('Delete this tracking note?')) return;
     setDeletingId(noteId);
     try {
@@ -129,7 +157,6 @@ export default function RecoveryTracker({ loanId }: { loanId: string }) {
     }
   };
 
-  // Upcoming follow-ups
   const upcomingFollowUps = notes.filter(
     (n) => n.followUpDate && new Date(n.followUpDate) >= new Date() && n.status !== 'RESOLVED'
   );
@@ -142,58 +169,60 @@ export default function RecoveryTracker({ loanId }: { loanId: string }) {
       {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500/20 to-purple-600/20 
-                          flex items-center justify-center border border-violet-500/20">
-            <span className="text-lg">🔍</span>
+          <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <Search className="w-4 h-4" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-slate-200">Recovery Tracking</h2>
-            <p className="text-[11px] text-slate-500">
-              {notes.length} note{notes.length !== 1 ? 's' : ''} logged
+            <h2 className="text-base font-bold text-slate-900 dark:text-white">Recovery & Contact Log</h2>
+            <p className="text-xs text-slate-500">
+              {notes.length} log{notes.length !== 1 ? 's' : ''} recorded
               {overdueFollowUps.length > 0 && (
-                <span className="text-rose-400 ml-2 font-medium">
+                <span className="text-rose-600 dark:text-rose-400 ml-2 font-medium">
                   • {overdueFollowUps.length} overdue follow-up{overdueFollowUps.length !== 1 ? 's' : ''}
                 </span>
               )}
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setIsFormOpen(!isFormOpen)}
-          className="text-[12px] py-2 px-3.5 rounded-xl font-medium
-                     bg-violet-500/10 text-violet-400 border border-violet-500/20
-                     hover:bg-violet-500/20 transition-all duration-200 flex items-center gap-1.5"
-        >
-          {isFormOpen ? (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                <path d="M3.28 3.22a.75.75 0 0 0-1.06 1.06L6.94 8l-4.72 4.72a.75.75 0 1 0 1.06 1.06L8 9.06l4.72 4.72a.75.75 0 1 0 1.06-1.06L9.06 8l4.72-4.72a.75.75 0 0 0-1.06-1.06L8 6.94 3.28 3.22Z" />
-              </svg>
-              Cancel
-            </>
-          ) : (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                <path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" />
-              </svg>
-              Add Note
-            </>
-          )}
-        </button>
+
+        {isDemo ? (
+          <span className="text-xs font-medium text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700/60 flex items-center gap-1.5">
+            <Lock className="w-3.5 h-3.5" />
+            <span>Read Only</span>
+          </span>
+        ) : (
+          <button
+            onClick={() => setIsFormOpen(!isFormOpen)}
+            className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5 cursor-pointer"
+          >
+            {isFormOpen ? (
+              <>
+                <X className="w-3.5 h-3.5" />
+                <span>Cancel</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-3.5 h-3.5" />
+                <span>Log Activity</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Follow-up alerts */}
       {overdueFollowUps.length > 0 && (
-        <div className="mb-4 p-3 rounded-xl bg-rose-500/5 border border-rose-500/15">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-rose-400 text-sm font-semibold">⚠️ Overdue Follow-ups</span>
+        <div className="mb-4 p-3 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/50 text-xs">
+          <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-bold mb-2">
+            <AlertTriangle className="w-4 h-4" />
+            <span>Overdue Follow-ups</span>
           </div>
           <div className="space-y-1.5">
             {overdueFollowUps.map((n) => (
-              <div key={n.id} className="flex items-center justify-between text-xs">
-                <span className="text-slate-400 truncate max-w-[200px]">{n.note}</span>
-                <span className="text-rose-400 font-medium">
-                  {format(new Date(n.followUpDate!), 'dd MMM')}
+              <div key={n.id} className="flex items-center justify-between">
+                <span className="text-slate-700 dark:text-slate-300 truncate max-w-[240px]">{n.note}</span>
+                <span className="text-rose-600 dark:text-rose-400 font-semibold">
+                  {format(new Date(n.followUpDate!), 'dd MMM yyyy')}
                 </span>
               </div>
             ))}
@@ -202,16 +231,17 @@ export default function RecoveryTracker({ loanId }: { loanId: string }) {
       )}
 
       {upcomingFollowUps.length > 0 && (
-        <div className="mb-4 p-3 rounded-xl bg-blue-500/5 border border-blue-500/15">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-blue-400 text-sm font-semibold">📅 Upcoming Follow-ups</span>
+        <div className="mb-4 p-3 rounded-xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/50 text-xs">
+          <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 font-bold mb-2">
+            <Clock className="w-4 h-4" />
+            <span>Upcoming Scheduled Touches</span>
           </div>
           <div className="space-y-1.5">
             {upcomingFollowUps.map((n) => (
-              <div key={n.id} className="flex items-center justify-between text-xs">
-                <span className="text-slate-400 truncate max-w-[200px]">{n.note}</span>
-                <span className="text-blue-400 font-medium">
-                  {format(new Date(n.followUpDate!), 'dd MMM')}
+              <div key={n.id} className="flex items-center justify-between">
+                <span className="text-slate-700 dark:text-slate-300 truncate max-w-[240px]">{n.note}</span>
+                <span className="text-blue-600 dark:text-blue-400 font-semibold">
+                  {format(new Date(n.followUpDate!), 'dd MMM yyyy')}
                 </span>
               </div>
             ))}
@@ -220,21 +250,17 @@ export default function RecoveryTracker({ loanId }: { loanId: string }) {
       )}
 
       {/* Add Note Form */}
-      {isFormOpen && (
-        <form onSubmit={handleSubmit} className="mb-6 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]
-                                                  animate-fade-in-up">
+      {isFormOpen && !isDemo && (
+        <form onSubmit={handleSubmit} className="mb-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3.5">
           {error && (
-            <div className="mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+            <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">
               {error}
             </div>
           )}
 
-          {/* Contact Date & Method Row */}
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
-                Contact Date
-              </label>
+              <label className="label">Contact Date</label>
               <input
                 type="date"
                 value={contactDate}
@@ -244,9 +270,7 @@ export default function RecoveryTracker({ loanId }: { loanId: string }) {
               />
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
-                Contact Method
-              </label>
+              <label className="label">Channel</label>
               <select
                 value={contactMethod}
                 onChange={(e) => setContactMethod(e.target.value)}
@@ -254,91 +278,73 @@ export default function RecoveryTracker({ loanId }: { loanId: string }) {
               >
                 {Object.entries(CONTACT_CONFIG).map(([key, cfg]) => (
                   <option key={key} value={key}>
-                    {cfg.icon} {cfg.label}
+                    {cfg.label}
                   </option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Status Row */}
-          <div className="mb-3">
-            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
-              Status
-            </label>
+          <div>
+            <label className="label">Outcome Status</label>
             <div className="flex flex-wrap gap-1.5">
               {Object.entries(STATUS_CONFIG).map(([key, cfg]) => (
                 <button
                   key={key}
                   type="button"
                   onClick={() => setStatus(key)}
-                  className={`text-[11px] py-1.5 px-2.5 rounded-lg font-medium border transition-all duration-200
-                    ${status === key
+                  className={`text-xs py-1.5 px-2.5 rounded-lg font-semibold border transition-colors cursor-pointer ${
+                    status === key
                       ? `${cfg.bg} ${cfg.color} ${cfg.border}`
-                      : 'bg-white/[0.03] text-slate-500 border-white/[0.06] hover:bg-white/[0.06]'
-                    }`}
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                  }`}
                 >
-                  {cfg.icon} {cfg.label}
+                  {cfg.label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Note */}
-          <div className="mb-3">
-            <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
-              Note *
-            </label>
+          <div>
+            <label className="label">Call / Visit Notes *</label>
             <textarea
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
-              placeholder="What happened? What was discussed? e.g. 'Called borrower, said will pay by next week...'"
+              placeholder="e.g. Discussed repayment plan; borrower committed to deposit ₹5,000 next Monday..."
               className="input text-xs"
               rows={3}
               required
             />
           </div>
 
-          {/* Follow-up Date & Promised Amount */}
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
-                Follow-up Date
-              </label>
+              <label className="label">Follow-up Date</label>
               <input
                 type="date"
                 value={followUpDate}
                 onChange={(e) => setFollowUpDate(e.target.value)}
                 className="input text-xs"
-                placeholder="When to follow up"
               />
-              <p className="text-[10px] text-slate-600 mt-1">When to check back</p>
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-500 uppercase tracking-wider mb-1.5">
-                Promised Amount
-              </label>
+              <label className="label">Promised Amount (₹)</label>
               <input
                 type="number"
                 value={promisedAmount}
                 onChange={(e) => setPromisedAmount(e.target.value)}
                 className="input text-xs"
-                placeholder="₹ Amount promised"
+                placeholder="₹"
               />
-              <p className="text-[10px] text-slate-600 mt-1">If borrower promised to pay</p>
             </div>
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting || !noteText}
-            className="w-full py-2.5 rounded-xl text-sm font-medium
-                       bg-gradient-to-r from-violet-500 to-purple-600 text-white
-                       hover:from-violet-600 hover:to-purple-700
-                       disabled:opacity-40 transition-all duration-200"
-            style={{ boxShadow: '0 4px 14px rgba(139, 92, 246, 0.25)' }}
+            className="btn-primary w-full text-xs"
           >
-            {isSubmitting ? 'Saving...' : 'Save Tracking Note'}
+            {isSubmitting ? 'Saving Note...' : 'Save Recovery Note'}
           </button>
         </form>
       )}
@@ -346,101 +352,77 @@ export default function RecoveryTracker({ loanId }: { loanId: string }) {
       {/* Timeline */}
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <div className="w-5 h-5 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
         </div>
       ) : notes.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-slate-600 text-sm italic">No tracking notes yet</p>
-          <p className="text-slate-700 text-xs mt-1">Click &quot;Add Note&quot; to start tracking recovery efforts</p>
+        <div className="text-center py-8 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+          <p className="text-slate-500 text-xs">No recovery contact notes logged yet</p>
         </div>
       ) : (
-        <div className="relative">
-          {/* Timeline line */}
-          <div className="absolute left-[18px] top-2 bottom-2 w-px bg-gradient-to-b from-violet-500/30 via-white/[0.06] to-transparent" />
+        <div className="space-y-3 mt-2">
+          {notes.map((note) => {
+            const statusCfg = STATUS_CONFIG[note.status] || STATUS_CONFIG.FOLLOW_UP;
+            const contactCfg = CONTACT_CONFIG[note.contactMethod] || CONTACT_CONFIG.OTHER;
+            const ContactIcon = contactCfg.icon;
+            const isOverdue = note.followUpDate && new Date(note.followUpDate) < new Date() && note.status !== 'RESOLVED';
 
-          <div className="space-y-1">
-            {notes.map((note, index) => {
-              const statusCfg = STATUS_CONFIG[note.status] || STATUS_CONFIG.FOLLOW_UP;
-              const contactCfg = CONTACT_CONFIG[note.contactMethod] || CONTACT_CONFIG.OTHER;
-              const isOverdue = note.followUpDate && new Date(note.followUpDate) < new Date() && note.status !== 'RESOLVED';
-
-              return (
-                <div
-                  key={note.id}
-                  className="relative pl-10 py-3 group"
-                >
-                  {/* Timeline dot */}
-                  <div className={`absolute left-[11px] top-[18px] w-[15px] h-[15px] rounded-full border-2 
-                    ${statusCfg.border} ${statusCfg.bg} flex items-center justify-center
-                    transition-all duration-300 group-hover:scale-110`}
-                  >
-                    <div className={`w-1.5 h-1.5 rounded-full ${statusCfg.color.replace('text-', 'bg-')}`} />
+            return (
+              <div
+                key={note.id}
+                className="p-3.5 rounded-xl bg-slate-50/60 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex flex-col gap-2"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      {format(new Date(note.contactDate), 'dd MMM yyyy')}
+                    </span>
+                    <span className={`text-[10px] py-0.5 px-2 rounded-md font-semibold ${statusCfg.bg} ${statusCfg.color} border ${statusCfg.border}`}>
+                      {statusCfg.label}
+                    </span>
+                    <span className="text-[10px] py-0.5 px-2 rounded-md bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 inline-flex items-center gap-1 font-medium">
+                      <ContactIcon className="w-3 h-3 text-slate-400" />
+                      {contactCfg.label}
+                    </span>
                   </div>
 
-                  <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] 
-                                  hover:bg-white/[0.04] hover:border-white/[0.08] transition-all duration-200">
-                    {/* Header row */}
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-slate-400 font-medium">
-                          {format(new Date(note.contactDate), 'dd MMM yyyy')}
-                        </span>
-                        <span className={`text-[10px] py-0.5 px-2 rounded-md font-medium ${statusCfg.bg} ${statusCfg.color} border ${statusCfg.border}`}>
-                          {statusCfg.icon} {statusCfg.label}
-                        </span>
-                        <span className="text-[10px] py-0.5 px-2 rounded-md bg-white/[0.04] text-slate-500 border border-white/[0.06]">
-                          {contactCfg.icon} {contactCfg.label}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleDelete(note.id)}
-                        disabled={deletingId === note.id}
-                        className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-rose-400 
-                                   transition-all duration-200 p-1 rounded-lg hover:bg-rose-500/10"
-                        title="Delete note"
-                      >
-                        {deletingId === note.id ? (
-                          <div className="w-3.5 h-3.5 border border-slate-600 border-t-slate-400 rounded-full animate-spin" />
-                        ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
-                            <path fillRule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5A.75.75 0 0 1 9.95 6Z" clipRule="evenodd" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-
-                    {/* Note text */}
-                    <p className="text-sm text-slate-300 leading-relaxed">{note.note}</p>
-
-                    {/* Metadata row */}
-                    <div className="flex items-center gap-3 mt-2 flex-wrap">
-                      {note.promisedAmount && (
-                        <span className="text-[11px] text-emerald-400 font-medium flex items-center gap-1">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
-                            <path d="M1 3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3ZM2 4v4h12V4H2Z" />
-                            <path d="M8 5.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM3.5 5a.5.5 0 1 1 0 1 .5.5 0 0 1 0-1Zm9.5.5a.5.5 0 1 0-1 0 .5.5 0 0 0 1 0Z" />
-                            <path d="M1 12.5A1.5 1.5 0 0 0 2.5 14h11a1.5 1.5 0 0 0 1.5-1.5v-1H1v1.5Z" />
-                          </svg>
-                          Promised ₹{Number(note.promisedAmount).toLocaleString()}
-                        </span>
-                      )}
-                      {note.followUpDate && (
-                        <span className={`text-[11px] font-medium flex items-center gap-1 ${
-                          isOverdue ? 'text-rose-400' : 'text-blue-400'
-                        }`}>
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
-                            <path fillRule="evenodd" d="M4 1.75a.75.75 0 0 1 1.5 0V3h5V1.75a.75.75 0 0 1 1.5 0V3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2V1.75ZM4.5 6a1 1 0 0 0-1 1v4.5a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-7Z" clipRule="evenodd" />
-                          </svg>
-                          {isOverdue ? 'Overdue: ' : 'Follow up: '}
-                          {format(new Date(note.followUpDate), 'dd MMM yyyy')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  {!isDemo && (
+                    <button
+                      onClick={() => handleDelete(note.id)}
+                      disabled={deletingId === note.id}
+                      className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 rounded-md transition-colors cursor-pointer"
+                      title="Delete entry"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-              );
-            })}
-          </div>
+
+                <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed font-normal">
+                  {note.note}
+                </p>
+
+                {(note.promisedAmount || note.followUpDate) && (
+                  <div className="flex items-center gap-4 text-[11px] pt-1 border-t border-slate-200/60 dark:border-slate-800/60 flex-wrap">
+                    {note.promisedAmount && (
+                      <span className="text-emerald-700 dark:text-emerald-400 font-semibold inline-flex items-center gap-1">
+                        <IndianRupee className="w-3 h-3" />
+                        Promised: ₹{Number(note.promisedAmount).toLocaleString('en-IN')}
+                      </span>
+                    )}
+                    {note.followUpDate && (
+                      <span className={`font-medium inline-flex items-center gap-1 ${
+                        isOverdue ? 'text-rose-600 dark:text-rose-400 font-semibold' : 'text-blue-600 dark:text-blue-400'
+                      }`}>
+                        <Calendar className="w-3 h-3" />
+                        {isOverdue ? 'Overdue follow-up: ' : 'Follow up: '}
+                        {format(new Date(note.followUpDate), 'dd MMM yyyy')}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

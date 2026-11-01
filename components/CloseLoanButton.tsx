@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import { CheckCircle2, Lock } from 'lucide-react';
 
 export default function CloseLoanButton({
   loanId,
@@ -11,7 +13,22 @@ export default function CloseLoanButton({
   isFullyPaid: boolean;
 }) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isDemo = Boolean(session?.user?.isDemo || session?.user?.email?.toLowerCase() === 'test@example.com');
   const [isLoading, setIsLoading] = useState(false);
+
+  if (isDemo) {
+    return (
+      <button
+        disabled
+        className="btn-secondary text-xs opacity-60 cursor-not-allowed flex items-center gap-1.5"
+        title="Closing loans is disabled in demo mode"
+      >
+        <Lock className="w-3.5 h-3.5 text-slate-400" />
+        <span>Close Loan (Disabled)</span>
+      </button>
+    );
+  }
 
   const handleClose = async () => {
     const message = isFullyPaid
@@ -27,13 +44,14 @@ export default function CloseLoanButton({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to close loan');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to close loan');
       }
 
       router.push('/');
       router.refresh();
-    } catch (error) {
-      alert('Failed to close loan');
+    } catch (error: any) {
+      alert(error.message || 'Failed to close loan');
     } finally {
       setIsLoading(false);
     }
@@ -43,9 +61,10 @@ export default function CloseLoanButton({
     <button
       onClick={handleClose}
       disabled={isLoading}
-      className="btn-danger text-sm disabled:opacity-50"
+      className="btn-danger text-xs disabled:opacity-50 flex items-center gap-1.5"
     >
-      {isLoading ? 'Closing...' : 'Close Loan'}
+      <CheckCircle2 className="w-3.5 h-3.5" />
+      <span>{isLoading ? 'Closing...' : 'Close Loan'}</span>
     </button>
   );
 }

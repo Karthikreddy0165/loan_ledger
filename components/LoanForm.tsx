@@ -2,11 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { LoanType, LoanStatus } from "@prisma/client";
-import { addDays, addWeeks, format } from "date-fns";
+import { useSession } from "next-auth/react";
+import { LoanType } from "@prisma/client";
+import { format } from "date-fns";
+import { User, IndianRupee, Calendar, PlusCircle, Lock, AlertCircle, ArrowLeft } from "lucide-react";
 
 export default function LoanForm() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isDemo = Boolean(session?.user?.isDemo || session?.user?.email?.toLowerCase() === "test@example.com");
+
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +37,11 @@ export default function LoanForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isDemo) {
+      setError("Creating new loans is disabled in demo mode.");
+      return;
+    }
+
     setError(null);
 
     startTransition(async () => {
@@ -50,106 +60,140 @@ export default function LoanForm() {
         });
 
         if (!res.ok) {
-          const data = await res.json();
+          const data = await res.json().catch(() => ({}));
           throw new Error(data.error || "Failed to create loan");
         }
 
         router.push("/");
         router.refresh();
       } catch (err: any) {
-        setError(err.message);
+        setError(err.message || "Failed to create loan");
       }
     });
   };
 
   return (
-    <div className="card max-w-2xl mx-auto shadow-xl border-white/[0.05] bg-[#0f172a]/50 backdrop-blur-md">
-      <form onSubmit={handleSubmit} className="space-y-6 p-2">
-        {error && (
-          <div className="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-3 rounded-lg text-sm">
-            {error}
-          </div>
-        )}
+    <div className="max-w-2xl mx-auto space-y-6">
+      <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Originate New Loan
+          </h1>
+          <p className="text-slate-500 text-xs mt-1">
+            Configure terms, disbursement schedule, and return commitments
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push("/")}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-blue-600 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Dashboard</span>
+        </button>
+      </div>
 
-        <div className="space-y-4">
+      {isDemo && (
+        <div className="p-3.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs flex items-center gap-2.5">
+          <Lock className="w-4 h-4 text-slate-500 shrink-0" />
+          <p className="text-slate-600 dark:text-slate-400">
+            View-Only Mode: Creating new loans is disabled for the test account.
+          </p>
+        </div>
+      )}
+
+      <div className="card">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {error && (
+            <div className="bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-400 p-3 rounded-xl text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
           <div>
-            <label className="label text-slate-300">Borrower Name</label>
+            <label className="label">Borrower Full Name *</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">👤</span>
+              <User className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
               <input
                 name="borrower"
                 type="text"
-                className="input pl-10"
-                placeholder="Enter borrower name"
+                className="input pl-9"
+                placeholder="e.g. Rahul Sharma"
                 value={form.borrower}
                 onChange={handleChange}
                 required
+                disabled={isDemo}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="label text-slate-300">Loan Type</label>
+              <label className="label">Loan Product Model *</label>
               <select
                 name="loanType"
                 className="input"
                 value={form.loanType}
                 onChange={handleChange}
                 required
+                disabled={isDemo}
               >
-                <option value="DAILY">Daily</option>
-                <option value="WEEKLY">Weekly</option>
-                <option value="MONTHLY">Monthly (Interest)</option>
-                <option value="ADJUSTMENT">Adjustment</option>
+                <option value="DAILY">Daily Micro-Loan</option>
+                <option value="WEEKLY">Weekly Loan</option>
+                <option value="MONTHLY">Monthly Interest</option>
+                <option value="ADJUSTMENT">Fixed Return Adjustment</option>
                 <option value="UNKNOWN">Recovery</option>
               </select>
             </div>
             <div>
-              <label className="label text-slate-300">Loan Amount (₹)</label>
+              <label className="label">Disbursal Amount (₹) *</label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-bold">₹</span>
+                <IndianRupee className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                 <input
                   name="loanGiven"
                   type="number"
                   min="0"
-                  className="input pl-8"
-                  placeholder="0.00"
+                  className="input pl-9"
+                  placeholder="e.g. 20000"
                   value={form.loanGiven}
                   onChange={handleChange}
                   required
+                  disabled={isDemo}
                 />
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="label text-slate-300">Start Date</label>
+              <label className="label">Start / Disbursal Date</label>
               <input
                 name="loanDate"
                 type="date"
                 className="input"
                 value={form.loanDate}
                 onChange={handleChange}
+                disabled={isDemo}
               />
             </div>
             <div>
-              <label className="label text-slate-300">Expected End Date</label>
+              <label className="label">Expected Maturity Date</label>
               <input
                 name="expectedReturnDate"
                 type="date"
-                className="input text-slate-400"
+                className="input"
                 value={form.expectedReturnDate}
                 onChange={handleChange}
+                disabled={isDemo}
               />
             </div>
           </div>
 
           {(form.loanType === "DAILY" || form.loanType === "WEEKLY") && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-4 bg-white/[0.02] rounded-xl border border-white/[0.05] animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
               <div>
-                <label className="label text-slate-300">Installments</label>
+                <label className="label">Installment Count</label>
                 <input
                   name="installmentCount"
                   type="number"
@@ -158,117 +202,117 @@ export default function LoanForm() {
                   placeholder="e.g. 100"
                   value={form.installmentCount}
                   onChange={handleChange}
+                  disabled={isDemo}
                 />
               </div>
               <div>
-                <label className="label text-slate-300">₹ Per Installment</label>
+                <label className="label">Amount Per Installment (₹)</label>
                 <input
                   name="amountPerInstallment"
                   type="number"
                   min="0"
                   className="input"
-                  placeholder="0.00"
+                  placeholder="e.g. 200"
                   value={form.amountPerInstallment}
                   onChange={handleChange}
+                  disabled={isDemo}
                 />
               </div>
             </div>
           )}
 
           {form.loanType === "MONTHLY" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-4 bg-blue-500/5 rounded-xl border border-blue-500/10 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-blue-50 dark:bg-blue-950/30 rounded-xl border border-blue-200 dark:border-blue-800/40">
               <div>
-                <label className="label text-slate-300">Monthly Interest (₹)</label>
+                <label className="label">Monthly Interest Amount (₹)</label>
                 <input
                   name="interestAmount"
                   type="number"
                   min="0"
-                  className="input border-blue-500/20 focus:border-blue-500"
-                  placeholder="0.00"
+                  className="input"
+                  placeholder="e.g. 1500"
                   value={form.interestAmount}
                   onChange={handleChange}
+                  disabled={isDemo}
                 />
               </div>
               <div>
-                <label className="label text-slate-300">First Due Date</label>
+                <label className="label">First Interest Due Date</label>
                 <input
                   name="interestDueDate"
                   type="date"
-                  className="input border-blue-500/20 focus:border-blue-500"
+                  className="input"
                   value={form.interestDueDate}
                   onChange={handleChange}
+                  disabled={isDemo}
                 />
               </div>
             </div>
           )}
 
           {form.loanType === "ADJUSTMENT" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-4 bg-emerald-500/5 rounded-xl border border-emerald-500/10 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-purple-50 dark:bg-purple-950/30 rounded-xl border border-purple-200 dark:border-purple-800/40">
               <div>
-                <label className="label text-slate-300">Adjustment Return (₹)</label>
+                <label className="label">Total Return Amount (₹)</label>
                 <input
                   name="adjustmentReturnAmount"
                   type="number"
                   min="0"
-                  className="input border-emerald-500/20 focus:border-emerald-500"
-                  placeholder="0.00"
+                  className="input"
+                  placeholder="e.g. 25000"
                   value={form.adjustmentReturnAmount}
                   onChange={handleChange}
+                  disabled={isDemo}
                 />
               </div>
               <div>
-                <label className="label text-slate-300">Return Date</label>
+                <label className="label">Settlement Date</label>
                 <input
                   name="adjustmentReturnDate"
                   type="date"
-                  className="input border-emerald-500/20 focus:border-emerald-500"
+                  className="input"
                   value={form.adjustmentReturnDate}
                   onChange={handleChange}
+                  disabled={isDemo}
                 />
               </div>
             </div>
           )}
 
           <div>
-            <label className="label text-slate-300">Note</label>
+            <label className="label">Underwriting Remarks & Guarantor Details</label>
             <textarea
               name="note"
               rows={3}
               className="input resize-none"
-              placeholder="Add any specific details here..."
+              placeholder="e.g. Shop owner at Market Rd, reference from Ramesh..."
               value={form.note}
               onChange={handleChange}
+              disabled={isDemo}
             />
           </div>
-        </div>
 
-        <div className="flex justify-end gap-3 pt-6 border-t border-white/[0.05]">
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="px-6 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-all text-sm font-medium"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isPending}
-            className="px-8 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {isPending ? (
-              <>
-                <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Saving...
-              </>
-            ) : (
-              "Create Loan Entry"
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="btn-secondary"
+            >
+              Cancel
+            </button>
+            {!isDemo && (
+              <button
+                type="submit"
+                disabled={isPending}
+                className="btn-primary"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>{isPending ? "Creating Record..." : "Disburse Loan"}</span>
+              </button>
             )}
-          </button>
-        </div>
-      </form>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

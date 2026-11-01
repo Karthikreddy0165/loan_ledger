@@ -1,14 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { paymentSchema } from '@/lib/validations';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import { isDemoSession } from '@/lib/permissions';
+import { createAuditLog } from '@/lib/audit';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (isDemoSession(session)) {
+      return NextResponse.json(
+        { error: 'Demo account is in view-only mode. Editing payments is disabled.' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const validated = paymentSchema.partial().parse(body);
+    const userId = (session.user as any).id;
 
     const payment = await prisma.payment.update({
       where: { id: params.id },
@@ -19,6 +36,14 @@ export async function PATCH(
         }),
         ...(validated.note !== undefined && { note: validated.note }),
       },
+    });
+
+    await createAuditLog({
+      userId,
+      action: 'UPDATE',
+      entity: 'Payment',
+      entityId: payment.id,
+      details: validated,
     });
 
     return NextResponse.json(payment);
@@ -45,8 +70,29 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    if (isDemoSession(session)) {
+      return NextResponse.json(
+        { error: 'Demo account is in view-only mode. Deleting payments is disabled.' },
+        { status: 403 }
+      );
+    }
+
+    const userId = (session.user as any).id;
+
     await prisma.payment.delete({
       where: { id: params.id },
+    });
+
+    await createAuditLog({
+      userId,
+      action: 'DELETE',
+      entity: 'Payment',
+      entityId: params.id,
     });
 
     return NextResponse.json({ success: true });

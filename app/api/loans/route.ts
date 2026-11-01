@@ -5,6 +5,7 @@ import { LoanType, LoanStatus } from '@prisma/client';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { createAuditLog } from '@/lib/audit';
+import { isDemoSession } from '@/lib/permissions';
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,13 +39,20 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const validated = loanSchema.parse(body);
-
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    if (isDemoSession(session)) {
+      return NextResponse.json(
+        { error: 'Demo account is in view-only mode. Creating loans is disabled.' },
+        { status: 403 }
+      );
+    }
+
+    const body = await request.json();
+    const validated = loanSchema.parse(body);
     const userId = (session.user as any).id;
 
     const loan = await prisma.loan.create({
